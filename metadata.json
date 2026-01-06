@@ -1,0 +1,5 @@
+{
+  "name": "Bộ Bài Ma Thuật",
+  "description": "Ứng dụng rút thẻ bài ma thuật với khả năng tích hợp dữ liệu từ Google Sheet theo chủ đề.",
+  "requestFramePermissions": []
+}
