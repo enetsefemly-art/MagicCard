@@ -11,10 +11,6 @@ export enum AppState {
   FINISHED = 'FINISHED'
 }
 
-export interface ThemeConfig {
-  id: string;
-  name: string;
-  type: 'manual' | 'sheet';
-  url?: string;
-  description: string;
+export interface ThemeCollection {
+  [themeName: string]: string[]; // Map theme name to list of content strings
 }

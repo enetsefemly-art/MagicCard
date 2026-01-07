@@ -14,7 +14,7 @@ export const Card: React.FC<CardProps> = ({ data, isBack = false, onClick, class
     return (
       <div
         onClick={onClick}
-        className={`w-64 h-96 rounded-2xl border-4 border-white shadow-xl cursor-pointer transition-transform hover:-translate-y-2 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center relative overflow-hidden ${className}`}
+        className={`w-64 h-96 rounded-2xl border-[6px] border-white/90 shadow-2xl cursor-pointer transition-transform hover:-translate-y-2 bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 flex items-center justify-center relative overflow-hidden ${className}`}
         style={style}
       >
         {/* Decorative back pattern */}
@@ -23,8 +23,8 @@ export const Card: React.FC<CardProps> = ({ data, isBack = false, onClick, class
                backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 20px, transparent 20px, transparent 40px)' 
              }} 
         />
-        <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm z-10">
-          <span className="text-4xl">?</span>
+        <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md z-10 border-2 border-white/30 shadow-inner">
+          <span className="text-5xl font-serif text-white/90">?</span>
         </div>
       </div>
     );
@@ -35,22 +35,24 @@ export const Card: React.FC<CardProps> = ({ data, isBack = false, onClick, class
   return (
     <div
       onClick={onClick}
-      className={`w-64 h-96 rounded-2xl border-4 border-white shadow-2xl flex flex-col items-center justify-center p-6 text-center animate-pop-in relative overflow-hidden ${data.color} ${className}`}
+      className={`w-64 h-96 rounded-2xl border-[6px] border-white shadow-2xl flex flex-col items-center justify-center p-8 text-center animate-pop-in relative overflow-hidden ${data.color} ${className}`}
       style={style}
     >
       <div 
-        className="absolute inset-0 opacity-30 pointer-events-none"
+        className="absolute inset-0 pointer-events-none"
         style={{ backgroundImage: data.pattern, backgroundSize: '20px 20px' }}
       />
       
-      <div className="relative z-10 flex flex-col items-center gap-4">
-        <h3 className="text-2xl font-bold break-words w-full">
+      <div className="relative z-10 flex flex-col items-center justify-center h-full w-full gap-4">
+        {/* Content with better contrast */}
+        <h3 className="text-2xl md:text-3xl font-extrabold break-words w-full leading-relaxed drop-shadow-sm text-slate-900">
           {data.content}
         </h3>
       </div>
       
-      <div className="absolute bottom-4 right-4 opacity-50 text-xs font-bold uppercase tracking-widest">
-        Lucky Card
+      {/* Footer text with high contrast */}
+      <div className="absolute bottom-4 opacity-60 text-[10px] font-black uppercase tracking-[0.2em] text-slate-800">
+        Magic Card
       </div>
     </div>
   );
