@@ -11,6 +11,17 @@ export enum AppState {
   FINISHED = 'FINISHED'
 }
 
+export enum GameMode {
+  MENU = 'MENU',
+  CLASSIC = 'CLASSIC', // Rút bài theo chủ đề
+  TOD = 'TOD' // Truth or Dare
+}
+
 export interface ThemeCollection {
   [themeName: string]: string[]; // Map theme name to list of content strings
+}
+
+export interface ToDCollection {
+  truth: string[];
+  dare: string[];
 }

@@ -38,11 +38,18 @@ export const FALLBACK_THEMES = {
     "Hãy dành thời gian chăm sóc bản thân hôm nay.",
     "Câu trả lời bạn tìm kiếm nằm bên trong bạn."
   ],
-  "Thử Thách Vui (Offline)": [
-    "Cười thật tươi trong 1 phút.",
-    "Nhắn tin khen ngợi một người bạn cũ.",
-    "Uống một cốc nước đầy ngay bây giờ.",
-    "Hít thở sâu 5 lần.",
-    "Đứng dậy và vươn vai."
+  "Sự thật (Offline)": [
+    "Điều xấu hổ nhất bạn từng làm là gì?",
+    "Bạn đã bao giờ nói dối người bạn thân nhất chưa?",
+    "Ai là người bạn ghét nhất trong phòng này (nếu có)?",
+    "Mật khẩu điện thoại của bạn là gì?",
+    "Lần cuối cùng bạn khóc là khi nào?"
+  ],
+  "Thử thách (Offline)": [
+    "Hát một bài hát bằng giọng opera.",
+    "Gọi điện cho người yêu cũ và hỏi thăm sức khỏe.",
+    "Để người bên cạnh vẽ lên mặt bạn.",
+    "Hít đất 10 cái ngay lập tức.",
+    "Múa một điệu múa bụng trong 1 phút."
   ]
 };
