@@ -16,7 +16,10 @@ const App: React.FC = () => {
   
   // Data State
   const [themes, setThemes] = useState<ThemeCollection>({});
+  
+  // ToD State: todData giữ dữ liệu gốc, todAvailable giữ bài chưa rút
   const [todData, setTodData] = useState<ToDCollection>({ truth: [], dare: [] });
+  const [todAvailable, setTodAvailable] = useState<ToDCollection>({ truth: [], dare: [] });
 
   const [isLoading, setIsLoading] = useState(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
@@ -90,7 +93,6 @@ const App: React.FC = () => {
 
     try {
       // Parallel fetch: Classic Cards & Truth or Dare
-      // Chú ý: Sheet name cho Truth or Dare là "Truth or Dare" như yêu cầu
       const [cardsData, todRawData] = await Promise.all([
           fetchSheetData('cards'),
           fetchSheetData('Truth or Dare')
@@ -108,11 +110,21 @@ const App: React.FC = () => {
       if (todRawData && todRawData.length > 0) {
           const processedToD = processToDData(todRawData);
           setTodData(processedToD);
+          // Initialize available deck by shuffling master data
+          setTodAvailable({
+             truth: shuffleArray([...processedToD.truth]),
+             dare: shuffleArray([...processedToD.dare])
+          });
       } else {
           console.warn("Không tìm thấy sheet 'Truth or Dare' hoặc sheet rỗng. Sử dụng dữ liệu offline.");
-          setTodData({
+          const fallbackToD = {
               truth: FALLBACK_THEMES["Sự thật (Offline)"],
               dare: FALLBACK_THEMES["Thử thách (Offline)"]
+          };
+          setTodData(fallbackToD);
+          setTodAvailable({
+             truth: shuffleArray([...fallbackToD.truth]),
+             dare: shuffleArray([...fallbackToD.dare])
           });
       }
 
@@ -123,9 +135,14 @@ const App: React.FC = () => {
       
       // Fallback everything
       setThemes(FALLBACK_THEMES);
-      setTodData({
+      const fallbackToD = {
          truth: FALLBACK_THEMES["Sự thật (Offline)"],
          dare: FALLBACK_THEMES["Thử thách (Offline)"]
+      };
+      setTodData(fallbackToD);
+      setTodAvailable({
+         truth: shuffleArray([...fallbackToD.truth]),
+         dare: shuffleArray([...fallbackToD.dare])
       });
       setIsOfflineMode(true);
     } finally {
@@ -315,37 +332,44 @@ const App: React.FC = () => {
 
   // Truth or Dare Actions
   const handlePickToD = (type: 'TRUTH' | 'DARE') => {
-    let pool: string[] = [];
+    const key = type === 'TRUTH' ? 'truth' : 'dare';
+    let currentPool = [...todAvailable[key]];
 
-    // Use fetched data first
-    if (type === 'TRUTH') {
-        pool = todData.truth;
-    } else {
-        pool = todData.dare;
-    }
-
-    // Checking if pool is empty
-    if (!pool || pool.length === 0) {
-       // Try fallback if main state is empty (should ideally be handled in fetchAllData but safe double check)
-       const fallbackKey = type === 'TRUTH' ? "Sự thật (Offline)" : "Thử thách (Offline)";
-       pool = FALLBACK_THEMES[fallbackKey as keyof typeof FALLBACK_THEMES] || [];
-       
-       if (pool.length === 0) {
-         alert(`Chưa có dữ liệu "${type}"! Vui lòng kiểm tra file Google Sheet (Sheet: Truth or Dare, Cột: ${type})`);
-         return;
-       }
+    // 1. Nếu hết bài trong danh sách hiện tại (currentPool), lấy lại từ danh sách gốc (todData) và xáo trộn
+    if (currentPool.length === 0) {
+        const masterPool = todData[key];
+        
+        // Kiểm tra an toàn nếu master data cũng rỗng (lỗi load)
+        if (!masterPool || masterPool.length === 0) {
+             const fallbackKey = type === 'TRUTH' ? "Sự thật (Offline)" : "Thử thách (Offline)";
+             const fallbackPool = FALLBACK_THEMES[fallbackKey as keyof typeof FALLBACK_THEMES] || [];
+             if (fallbackPool.length === 0) {
+                 alert("Không có dữ liệu!");
+                 return;
+             }
+             currentPool = shuffleArray([...fallbackPool]);
+        } else {
+             // Refill and Shuffle
+             currentPool = shuffleArray([...masterPool]);
+        }
     }
 
     setIsShuffling(true);
+
+    // 2. Rút 1 lá từ pool (sử dụng pop để lấy lá bài cuối cùng sau khi đã shuffle)
+    const content = currentPool.pop();
     
-    // Pick one random card
-    const randomContent = getRandomItem(pool);
+    // 3. Cập nhật lại state todAvailable với danh sách đã bị loại bỏ lá vừa rút
+    setTodAvailable(prev => ({
+        ...prev,
+        [key]: currentPool
+    }));
     
-    if (randomContent) {
+    if (content) {
         setTimeout(() => {
             const card: CardData = {
                 id: crypto.randomUUID(),
-                content: randomContent,
+                content: content,
                 // Truth = Blueish, Dare = Reddish/Orange
                 color: type === 'TRUTH' 
                     ? 'bg-sky-100 text-slate-900 border-sky-200' 
@@ -484,7 +508,7 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row items-center justify-center gap-12 md:gap-24 w-full min-h-[450px]">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-12 md:gap-24 w-full min-h-[600px]">
             {/* The Deck */}
             <div className="relative group perspective-1000">
               {deck.length > 0 ? (
@@ -493,8 +517,8 @@ const App: React.FC = () => {
                   className={`relative transition-all duration-300 ${!isShuffling ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-wait'}`}
                 >
                    {/* Stack layers */}
-                  {deck.length > 2 && <div className="absolute top-0 left-0 w-64 h-96 bg-indigo-900 rounded-2xl transform -rotate-6 translate-x-4 translate-y-4 opacity-60 border border-white/20 shadow-xl"></div>}
-                  {deck.length > 1 && <div className="absolute top-0 left-0 w-64 h-96 bg-purple-900 rounded-2xl transform -rotate-3 translate-x-2 translate-y-2 opacity-80 border border-white/30 shadow-xl"></div>}
+                  {deck.length > 2 && <div className="absolute top-0 left-0 w-80 h-[500px] bg-indigo-900 rounded-2xl transform -rotate-6 translate-x-4 translate-y-4 opacity-60 border border-white/20 shadow-xl"></div>}
+                  {deck.length > 1 && <div className="absolute top-0 left-0 w-80 h-[500px] bg-purple-900 rounded-2xl transform -rotate-3 translate-x-2 translate-y-2 opacity-80 border border-white/30 shadow-xl"></div>}
                   <Card 
                     isBack 
                     className={`relative z-10 card-stack-effect ${isShuffling ? 'animate-wiggle' : 'animate-bounce-slow'}`} 
@@ -506,7 +530,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="w-64 h-96 border-4 border-dashed border-white/30 rounded-2xl flex flex-col items-center justify-center text-white/50 bg-black/20 backdrop-blur-sm">
+                <div className="w-80 h-[500px] border-4 border-dashed border-white/30 rounded-2xl flex flex-col items-center justify-center text-white/50 bg-black/20 backdrop-blur-sm">
                   <span className="text-5xl mb-4 grayscale opacity-50">✨</span>
                   <span className="font-bold text-xl uppercase tracking-widest">Hết bài</span>
                 </div>
@@ -514,12 +538,12 @@ const App: React.FC = () => {
             </div>
 
             {/* The Drawn Card */}
-            <div className="perspective-1000 relative w-64 h-96 flex items-center justify-center">
+            <div className="perspective-1000 relative w-80 h-[500px] flex items-center justify-center">
               {currentCard ? (
                 <Card data={currentCard} />
               ) : (
                 <div className="text-center opacity-60">
-                  <div className="w-64 h-96 border-4 border-white/10 rounded-2xl flex items-center justify-center bg-white/5 backdrop-blur-sm">
+                  <div className="w-80 h-[500px] border-4 border-white/10 rounded-2xl flex items-center justify-center bg-white/5 backdrop-blur-sm">
                     <p className="text-white font-bold px-8 text-lg drop-shadow-md">
                       Lá bài định mệnh <br/>sẽ xuất hiện ở đây
                     </p>
@@ -597,6 +621,8 @@ const App: React.FC = () => {
                         <div className="text-left">
                             <span className="block text-2xl font-black text-white uppercase tracking-wider">Truth</span>
                             <span className="text-sky-100 text-sm">Nói sự thật</span>
+                             {/* Show remaining count */}
+                            <span className="block text-xs text-sky-200/60 mt-1">Còn lại: {todAvailable.truth.length}</span>
                         </div>
                     </div>
                 </button>
@@ -613,13 +639,15 @@ const App: React.FC = () => {
                         <div className="text-left">
                             <span className="block text-2xl font-black text-white uppercase tracking-wider">Dare</span>
                             <span className="text-rose-100 text-sm">Nhận thử thách</span>
+                             {/* Show remaining count */}
+                             <span className="block text-xs text-rose-200/60 mt-1">Còn lại: {todAvailable.dare.length}</span>
                         </div>
                     </div>
                 </button>
             </div>
 
             {/* Display Card Area */}
-            <div className="relative w-72 h-[450px] flex items-center justify-center perspective-1000">
+            <div className="relative w-80 h-[500px] flex items-center justify-center perspective-1000">
                {isShuffling ? (
                   <div className="absolute inset-0 flex items-center justify-center z-50">
                      <Card isBack className="animate-wiggle" />
