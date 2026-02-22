@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Layers, RotateCcw, Shuffle, PartyPopper, Sparkles, Database, Loader2, BookOpen, RefreshCw, WifiOff, Gamepad2, Flame, HelpCircle, ArrowLeft } from 'lucide-react';
-import { CardData, AppState, ThemeCollection, GameMode, ToDCollection } from './types';
+import { Layers, RotateCcw, Shuffle, PartyPopper, Sparkles, Database, Loader2, BookOpen, RefreshCw, WifiOff, Gamepad2, Flame, HelpCircle, ArrowLeft, Scroll } from 'lucide-react';
+import { CardData, AppState, ThemeCollection, GameMode, ToDCollection, FortuneData } from './types';
 import { PASTEL_COLORS, PATTERNS, API_URL, FALLBACK_THEMES } from './constants';
 import { Card } from './components/Card';
+import { FortuneCard } from './components/FortuneCard';
 
 const App: React.FC = () => {
   // Navigation State
@@ -20,6 +21,11 @@ const App: React.FC = () => {
   // ToD State: todData giữ dữ liệu gốc, todAvailable giữ bài chưa rút
   const [todData, setTodData] = useState<ToDCollection>({ truth: [], dare: [] });
   const [todAvailable, setTodAvailable] = useState<ToDCollection>({ truth: [], dare: [] });
+
+  // Fortune State
+  const [fortuneData, setFortuneData] = useState<FortuneData[]>([]);
+  const [fortuneAvailable, setFortuneAvailable] = useState<FortuneData[]>([]);
+  const [currentFortune, setCurrentFortune] = useState<FortuneData | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
@@ -92,10 +98,11 @@ const App: React.FC = () => {
     setDebugMsg('');
 
     try {
-      // Parallel fetch: Classic Cards & Truth or Dare
-      const [cardsData, todRawData] = await Promise.all([
+      // Parallel fetch: Classic Cards, Truth or Dare, and Fortune
+      const [cardsData, todRawData, fortuneRawData] = await Promise.all([
           fetchSheetData('cards'),
-          fetchSheetData('Truth or Dare')
+          fetchSheetData('Truth or Dare'),
+          fetchSheetData('Gieoque')
       ]);
 
       // 1. Process Classic Themes
@@ -126,6 +133,21 @@ const App: React.FC = () => {
              truth: shuffleArray([...fallbackToD.truth]),
              dare: shuffleArray([...fallbackToD.dare])
           });
+      }
+
+      // 3. Process Fortune (Gieo quẻ)
+      if (fortuneRawData && fortuneRawData.length > 0) {
+          const processedFortune = processFortuneData(fortuneRawData);
+          setFortuneData(processedFortune);
+          setFortuneAvailable(shuffleArray([...processedFortune]));
+      } else {
+          console.warn("Không tìm thấy sheet 'Gieoque' hoặc sheet rỗng.");
+          const fallbackFortune: FortuneData[] = [
+            { name: "Quẻ Cát", content: "Vạn sự hanh thông, mưu sự tất thành.", interpretation: "Mọi việc bạn dự định làm trong thời gian tới đều có khả năng thành công cao. Hãy tự tin tiến bước." },
+            { name: "Quẻ Bình", content: "Giữ tâm an định, chờ đợi thời cơ.", interpretation: "Hiện tại chưa phải lúc để thay đổi lớn. Hãy kiên nhẫn tích lũy và chuẩn bị cho tương lai." }
+          ];
+          setFortuneData(fallbackFortune);
+          setFortuneAvailable(shuffleArray([...fallbackFortune]));
       }
 
     } catch (err: any) {
@@ -245,6 +267,56 @@ const App: React.FC = () => {
     return result;
   };
 
+  const processFortuneData = (data: any[]): FortuneData[] => {
+    const result: FortuneData[] = [];
+    if (!Array.isArray(data) || data.length === 0) return result;
+    const sample = data[0];
+
+    // --- CASE 1: Array of Arrays ---
+    if (Array.isArray(sample)) {
+        const headers = sample.map(h => String(h).toLowerCase().trim());
+        const nameIdx = headers.findIndex(h => h === 'ten que' || h === 'tên quẻ' || h === 'name');
+        const contentIdx = headers.findIndex(h => h === 'noi dung' || h === 'nội dung' || h === 'content');
+        const interpIdx = headers.findIndex(h => h === 'luan giai' || h === 'luận giải' || h === 'interpretation');
+        const typeIdx = headers.findIndex(h => h === 'type' || h === 'loại');
+
+        for (let i = 1; i < data.length; i++) {
+            const row = data[i];
+            if (row[nameIdx] && row[contentIdx]) {
+                result.push({
+                    id: crypto.randomUUID(),
+                    name: String(row[nameIdx]),
+                    content: String(row[contentIdx]),
+                    interpretation: String(row[interpIdx] || ''),
+                    type: typeIdx !== -1 && row[typeIdx] ? Number(row[typeIdx]) : undefined
+                });
+            }
+        }
+    } 
+    // --- CASE 2: Array of Objects ---
+    else if (typeof sample === 'object') {
+        const keys = Object.keys(sample);
+        const nameKey = keys.find(k => /ten que|tên quẻ|name/i.test(k));
+        const contentKey = keys.find(k => /noi dung|nội dung|content/i.test(k));
+        const interpKey = keys.find(k => /luan giai|luận giải|interpretation/i.test(k));
+        const typeKey = keys.find(k => /type|loại/i.test(k));
+
+        data.forEach(row => {
+            if (nameKey && row[nameKey] && contentKey && row[contentKey]) {
+                result.push({
+                    id: crypto.randomUUID(),
+                    name: String(row[nameKey]),
+                    content: String(row[contentKey]),
+                    interpretation: String(row[interpKey] || ''),
+                    type: typeKey && row[typeKey] ? Number(row[typeKey]) : undefined
+                });
+            }
+        });
+    }
+
+    return result;
+  };
+
   // --- HELPERS ---
   const createDeckFromContent = (contents: string[], colorOverride?: string) => {
     const newDeck: CardData[] = contents.map(line => ({
@@ -278,6 +350,7 @@ const App: React.FC = () => {
     setDeck([]);
     setDrawnCards([]);
     setCurrentCard(null);
+    setCurrentFortune(null);
   };
 
   // Classic Mode Actions
@@ -382,6 +455,94 @@ const App: React.FC = () => {
     }
   };
 
+  // Fortune Actions
+  const handleDrawFortune = () => {
+    let currentPool = [...fortuneAvailable];
+
+    if (currentPool.length === 0) {
+        if (fortuneData.length === 0) {
+            alert("Không có dữ liệu quẻ!");
+            return;
+        }
+        // Reset pool from master data
+        currentPool = [...fortuneData];
+    }
+
+    setIsShuffling(true);
+
+    // --- Weighted Random Logic ---
+    // 1. Group available cards by type
+    // Types: 1 (5%), 2 (30%), 3 (20%), 4 (2%), Others (43%)
+    const groups: Record<number, FortuneData[]> = { 1: [], 2: [], 3: [], 4: [], 0: [] };
+    
+    currentPool.forEach(card => {
+        const t = card.type || 0;
+        if (groups[t]) groups[t].push(card);
+        else groups[0].push(card); // Map unknown types to 0 (Other)
+    });
+
+    // 2. Define weights
+    const weights: Record<number, number> = { 1: 5, 2: 30, 3: 20, 4: 2, 0: 43 };
+    
+    // 3. Calculate total weight of AVAILABLE types
+    let totalWeight = 0;
+    const availableTypes: number[] = [];
+    
+    for (const t in groups) {
+        const typeId = Number(t);
+        if (groups[typeId].length > 0) {
+            totalWeight += weights[typeId] || 0;
+            availableTypes.push(typeId);
+        }
+    }
+
+    // 4. Roll for Type
+    let random = Math.random() * totalWeight;
+    let selectedType = 0;
+    
+    for (const t of availableTypes) {
+        const w = weights[t] || 0;
+        if (random < w) {
+            selectedType = t;
+            break;
+        }
+        random -= w;
+    }
+
+    // 5. Pick random card from selected type group
+    const targetGroup = groups[selectedType];
+    // Fallback if something went wrong (shouldn't happen if logic is correct)
+    if (!targetGroup || targetGroup.length === 0) {
+        // Just pick random from full pool as failsafe
+        const fallbackIdx = Math.floor(Math.random() * currentPool.length);
+        const picked = currentPool[fallbackIdx];
+        finishDraw(picked, currentPool);
+        return;
+    }
+
+    const pickedCardIndex = Math.floor(Math.random() * targetGroup.length);
+    const pickedCard = targetGroup[pickedCardIndex];
+
+    finishDraw(pickedCard, currentPool);
+  };
+
+  const finishDraw = (picked: FortuneData, currentPool: FortuneData[]) => {
+    // Remove from pool
+    const newPool = currentPool.filter(c => c.id !== picked.id);
+    setFortuneAvailable(newPool);
+
+    if (picked) {
+        setTimeout(() => {
+            const luckyNum = Math.floor(Math.random() * 101).toString().padStart(2, '0');
+            setCurrentFortune({
+                ...picked,
+                luckyNumber: luckyNum
+            });
+            setIsShuffling(false);
+        }, 800);
+    }
+  };
+
 
   // --- RENDERS ---
 
@@ -433,6 +594,20 @@ const App: React.FC = () => {
            <div>
              <h2 className="text-2xl font-black text-white mb-2 drop-shadow-md">Truth or Dare</h2>
              <p className="text-rose-100 font-medium text-sm drop-shadow-sm">Thật hay Thách? Đối mặt với sự thật hoặc nhận thử thách.</p>
+           </div>
+        </button>
+
+        {/* Button: Fortune Telling */}
+        <button 
+          onClick={() => setGameMode(GameMode.FORTUNE)}
+          className="group relative h-64 bg-slate-900/50 hover:bg-slate-800/70 bg-gradient-to-br from-amber-900/50 to-orange-900/50 backdrop-blur-md border border-white/20 hover:border-amber-400/50 rounded-3xl p-6 transition-all hover:scale-105 shadow-2xl flex flex-col items-center justify-center text-center gap-4 md:col-span-2"
+        >
+           <div className="w-20 h-20 rounded-full bg-amber-500/20 flex items-center justify-center group-hover:bg-amber-500/40 transition-colors shadow-inner border border-white/10">
+             <Scroll size={40} className="text-amber-200" />
+           </div>
+           <div>
+             <h2 className="text-2xl font-black text-white mb-2 drop-shadow-md">Gieo Quẻ Đầu Năm</h2>
+             <p className="text-amber-100 font-medium text-sm drop-shadow-sm">Xin một quẻ linh ứng, xem vận hạn và nhận con số may mắn.</p>
            </div>
         </button>
       </div>
@@ -670,6 +845,60 @@ const App: React.FC = () => {
     </>
   );
 
+  const renderFortuneMode = () => (
+    <>
+       <div className="absolute top-4 left-4 z-20">
+         <button onClick={handleReturnToMenu} className="bg-white/10 p-2 rounded-full hover:bg-white/20 text-white backdrop-blur-md transition-all">
+            <ArrowLeft size={24} />
+         </button>
+      </div>
+
+      {renderHeader("Gieo Quẻ Linh Ứng", "Thành tâm xin quẻ")}
+
+      <div className="w-full max-w-4xl flex flex-col items-center animate-pop-in relative z-10 px-4">
+         
+         <div className="flex flex-col items-center justify-center gap-12 w-full mt-4">
+            
+            <div className="relative w-full max-w-[450px] min-h-[650px] flex items-center justify-center perspective-1000">
+               {isShuffling ? (
+                  <div className="absolute inset-0 flex items-center justify-center z-50">
+                     <FortuneCard isBack className="animate-wiggle border-amber-400" />
+                  </div>
+               ) : currentFortune ? (
+                  <FortuneCard data={currentFortune} className="animate-pop-in" />
+               ) : (
+                  <div 
+                    onClick={handleDrawFortune}
+                    className="w-full h-full border-4 border-dashed border-amber-400/30 rounded-3xl flex flex-col items-center justify-center bg-amber-900/20 backdrop-blur-sm p-8 text-center cursor-pointer hover:bg-amber-900/30 transition-all group"
+                  >
+                     <div className="w-24 h-24 rounded-full bg-amber-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <Scroll size={48} className="text-amber-200" />
+                     </div>
+                     <h3 className="text-2xl font-black text-amber-100 mb-2">Gieo Quẻ</h3>
+                     <p className="text-amber-200/60 font-medium">
+                        Nhấn vào đây để bốc một quẻ may mắn cho riêng bạn
+                     </p>
+                     <div className="mt-8 px-4 py-2 bg-amber-500/20 rounded-full text-xs font-bold text-amber-200 uppercase tracking-widest animate-pulse">
+                        Thành tâm xin quẻ
+                     </div>
+                  </div>
+               )}
+            </div>
+
+            {currentFortune && (
+                <button
+                    onClick={handleDrawFortune}
+                    className="px-10 py-4 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl font-bold shadow-xl shadow-amber-900/40 transition-all hover:scale-105 flex items-center gap-3 border border-amber-400/50"
+                >
+                    <RefreshCw size={20} className={isShuffling ? 'animate-spin' : ''} />
+                    Xin Quẻ Khác
+                </button>
+            )}
+         </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center py-8 font-sans text-white relative overflow-hidden overflow-y-auto">
       
@@ -682,6 +911,7 @@ const App: React.FC = () => {
       {gameMode === GameMode.MENU && renderMainMenu()}
       {gameMode === GameMode.CLASSIC && renderClassicMode()}
       {gameMode === GameMode.TOD && renderToDMode()}
+      {gameMode === GameMode.FORTUNE && renderFortuneMode()}
 
     </div>
   );

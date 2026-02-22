@@ -14,7 +14,17 @@ export enum AppState {
 export enum GameMode {
   MENU = 'MENU',
   CLASSIC = 'CLASSIC', // Rút bài theo chủ đề
-  TOD = 'TOD' // Truth or Dare
+  TOD = 'TOD', // Truth or Dare
+  FORTUNE = 'FORTUNE' // Gieo quẻ
+}
+
+export interface FortuneData {
+  id?: string;
+  name: string;
+  content: string;
+  interpretation: string;
+  luckyNumber?: string;
+  type?: number;
 }
 
 export interface ThemeCollection {
