@@ -482,7 +482,7 @@ const App: React.FC = () => {
     });
 
     // 2. Define weights
-    const weights: Record<number, number> = { 1: 5, 2: 30, 3: 20, 4: 2, 0: 43 };
+    const weights: Record<number, number> = { 1: 5, 2: 30, 3: 20, 4: 0.5, 0: 44.5 };
     
     // 3. Calculate total weight of AVAILABLE types
     let totalWeight = 0;
